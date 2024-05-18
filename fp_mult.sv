@@ -18,17 +18,20 @@ logic sign_mult;
 logic [9:0] added_exp, exp_mult;
 const int exp_bias = 127;
 logic [47:0] P;
-logic [9:0] norm_exp;
+logic [9:0] norm_exp, post_exp;
 logic [22:0] norm_mantissa;
 logic guard, sticky;
-logic [24:0] result;
+logic [24:0] result, post_mantissa;
 logic inexact;
 logic [31:0] z_calc;
 logic overflow = 1'b0, underflow= 1'b0;
-
+logic zero_f, inf_f, nan_f, tiny_f, huge_f, inexact_f;
 
 // Cast rnd to enum type
-rnd_t rnd_e = rnd_t'(rnd);
+rnd_t rnd_e;
+always_comb begin
+	rnd_e = rnd_t'(rnd);
+end
 
 // Sign calculation
 assign sign_mult = (a[31] ^ b[31]);
@@ -51,27 +54,32 @@ round_mult rounder({1'b1,norm_mantissa}, guard, sticky, sign_mult, rnd_e, result
 // Post-Rounding
 always_comb begin
   if (result[24] == 1'b1) begin // MSB of mantissa is 1
-	result = result >> 1; // Shift mantissa to the right by one
-	norm_exp = norm_exp + 1; // Increase exponent by one
+	post_mantissa = result >> 1; // Shift mantissa to the right by one
+	post_exp = norm_exp + 1; // Increase exponent by one
+	end
+  else begin
+	post_mantissa = result;
+	post_exp = norm_exp;
 	end
 end
 
 // Make z_calc
-assign z_calc = {sign_mult,norm_exp[8:0],result[22:0]};
+assign z_calc = {sign_mult,post_exp[7:0],post_mantissa[22:0]};
 
 // Calculate overflow and underflow signals
 always_comb begin
-if (norm_exp[9] == 1'b1 || norm_exp[8] == 1'b1) begin // Overflow
+if (post_exp[7:0] > 8'b1111_1110) begin // Overflow
 	overflow = 1;
 	end
-if (norm_exp[7:0] < 0) begin // Undeflow
+if (post_exp[7:0] < 1'b1) begin // Undeflow
 	underflow = 1;
 	end
 end
 
+// Exception handling
+exception_mult excep_handeler(a, b, z_calc, overflow, underflow, inexact, rnd_e, z,
+	zero_f, inf_f, nan_f, tiny_f, huge_f, inexact_f);
 
-
-// TODO: Exeption handling
-
+assign status = {zero_f, inf_f, nan_f, tiny_f, huge_f, inexact_f, 1'b0, 1'b0};
 
 endmodule

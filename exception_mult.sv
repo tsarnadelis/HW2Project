@@ -3,7 +3,7 @@ import rnd_enum::*;
 
 module exception_mult(
 	input logic [31:0] a, b, z_calc,
-	input logic overflow, undeflow, inexact,
+	input logic overflow, underflow, inexact,
 	input rnd_t rnd,
 	output logic [31:0] z,
 	output logic zero_f, inf_f, nan_f, tiny_f, huge_f, inexact_f
@@ -42,28 +42,81 @@ tiny_f = 0;
 huge_f = 0;
 inexact_f = 0;
 
-if( num_interp(a) == ZERO ) // A is ZERO
-  begin 
+// Check if z_calc is NaN
+if (z_calc[30:23] === 8'b11111111 && z_calc[22:0] > 0) nan_f = 1;
+
+if( num_interp(a) == ZERO ) // A is ZERO 
 	case(num_interp(b))
-	  INF:;
-	  default: ;
-  	endcase
-  end	
+	  INF: begin
+		inf_f = 1; // Infinite flag
+		z = {1'b0, z_num(INF)};
+		end
+	  default: begin
+		zero_f = 1; // Zero flag
+		z = {a[31]+b[31], z_num(ZERO)};
+		end	
+  	endcase	
 
 else if( num_interp(a) == INF ) // A is INF
-  begin
   	case(num_interp(b))
-	  INF:;
-	  default:;
+	  ZERO:begin
+		inf_f = 1; // Infinite flag
+		z = {1'b0, z_num(INF)};
+		end
+	  default: begin
+		inf_f = 1; // Infinite flag
+		z = {a[31]+b[31], z_num(INF)};
+		end			
 	endcase
-  end
-else
-  begin
-  	case(num_interp(b)) // A is NORM
-	  ZERO:;
-	  INF:;
+
+else // A is NORM
+  	case(num_interp(b))
+	  ZERO: begin
+		zero_f = 1; // Zero flag
+		z = {a[31]+b[31], z_num(ZERO)};
+		end
+	  INF: 	begin
+		inf_f = 1; // Infinite flag
+		z = {a[31]+b[31], z_num(INF)};
+		end
+	default: if(overflow) // B is NORM
+		begin
+			huge_f = 1;
+			case(rnd)
+			IEEE_near: z = {z_calc[31],z_num(MAX_NORM)}; 
+			IEEE_zero: z = {z_calc[31],z_num(MAX_NORM)};
+			away_zero: z = {z_calc[31],z_num(INF)};
+			IEEE_pinf: if(z_calc[31]) z = {z_calc[31],z_num(MAX_NORM)};
+				   else z = {z_calc[31],z_num(INF)};
+			IEEE_ninf: if(z_calc[31]) z = {z_calc[31],z_num(INF)};
+				   else z = {z_calc[31],z_num(MAX_NORM)};
+			near_up: if(z_calc[31]) z = {z_calc[31],z_num(MAX_NORM)};
+				   else z = {z_calc[31],z_num(INF)};
+			endcase
+		end	
+		else if(underflow)
+		begin
+			tiny_f = 1;
+			case(rnd)
+			IEEE_near: z = {z_calc[31],z_num(MIN_NORM)}; 
+			IEEE_zero: z = {z_calc[31],z_num(ZERO)};
+			away_zero: z = {z_calc[31],z_num(MIN_NORM)};
+			IEEE_pinf: if(z_calc[31]) z = {z_calc[31],z_num(ZERO)};
+				   else z = {z_calc[31],z_num(MIN_NORM)};
+			IEEE_ninf: if(z_calc[31]) z = {z_calc[31],z_num(MIN_NORM)};
+				   else z = {z_calc[31],z_num(ZERO)};
+			near_up: if(z_calc[31]) z = {z_calc[31],z_num(ZERO)};
+				   else z = {z_calc[31],z_num(MIN_NORM)};
+			endcase
+		end
+		else // Neither overflow or underflow
+		begin
+			z = z_calc;
+			inexact_f = inexact;	
+		end	
+
 	endcase
-  end
+
 end
 
 
