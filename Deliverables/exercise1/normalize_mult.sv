@@ -11,13 +11,13 @@ always_comb
 	norm_exp = exp_mult + 1'b1; // Exponent update
 	norm_mantissa = P[46:24]; // Mantissa normalizer
 	guard = P[23]; // Guard bit
-	sticky = |P[22:0]; // Sticky bit //-----CHECK IF BITWISE OR WORKS-------
+	sticky = |P[22:0]; // Sticky bit 
 	end
   else begin
 	norm_exp = exp_mult; // Exponent update
 	norm_mantissa = P[45:23]; // Mantissa normalizer
 	guard = P[22]; // Guard bit
-	sticky = |P[21:0]; // Sticky bit //-----CHECK IF BITWISE OR WORKS-------
+	sticky = |P[21:0]; // Sticky bit
 end
 
 endmodule

@@ -40,7 +40,7 @@ assign sign_mult = (a[31] ^ b[31]);
 assign added_exp = (a[30:23] + b[30:23]);
 
 // Subtraction of bias
-assign exp_mult = added_exp - exp_bias;  //--------NOT SURE IF CORRECT - CHECK AGAIN----------
+assign exp_mult = added_exp - exp_bias;
 
 // Mantissa multiplication
 assign P = {1'b1,a[22:0]} * {1'b1,b[22:0]}; // Concatenate leading ones
@@ -68,18 +68,18 @@ assign z_calc = {sign_mult,post_exp[7:0],post_mantissa[22:0]};
 
 // Calculate overflow and underflow signals
 always_comb begin
-if (post_exp[7:0] > 8'b1111_1110) begin // Overflow
-	overflow = 1;
-	end
-if (post_exp[7:0] < 1'b1) begin // Undeflow
-	underflow = 1;
-	end
+
+    if (post_exp[7:0] == 8'b1111_1111) overflow = 1; // Overflow
+    else overflow = 0;
+	    
+    if (post_exp[7:0] == 8'b0000_0000) underflow = 1; //Undeflow
+    else underflow = 0;
 end
 
 // Exception handling
-exception_mult excep_handeler(a, b, z_calc, overflow, underflow, inexact, rnd_e, z,
+exception_mult excep_handler(a, b, z_calc, overflow, underflow, inexact, rnd_e, z,
 	zero_f, inf_f, nan_f, tiny_f, huge_f, inexact_f);
 
-assign status = {zero_f, inf_f, nan_f, tiny_f, huge_f, inexact_f, 1'b0, 1'b0};
+assign status = {1'b0, 1'b0, inexact_f, huge_f, tiny_f, nan_f, inf_f, zero_f};
 
 endmodule
